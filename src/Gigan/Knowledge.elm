@@ -28,7 +28,56 @@ THE USE OF THIS SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
 --}
 
 
-module Gigan.Knowledge where
+module Gigan.Knowledge
+
+  (Knowledge,
+  KnowledgeBase,
+  KnowledgeRecord,
+  KnowledgeBaseDelta,
+
+  BaseKnowledge,
+  RecordKnowledge,
+
+  Remote, RemoteMap,
+
+  RemoteConfig, RemoteMapConfig,
+  QueryTask,
+
+  knowledgeOf, forbiddenKnowledge, pendingKnowledge, undecidedKnowledge,
+  unknownKnowledge, voidKnowledge, knowledgeDo,
+
+  maybeOr, resultOr,
+
+  assumeIf, assumeIfNot, assumeIfNow, assumeInCase, assumeInCaseNow,
+  decideBy, doOperation, maybeKnownNow, otherwise,
+
+  therefore, within,
+
+  dispatchIf, dispatchIfNot, dispatchInCase,
+
+  isUnknown, isNotUnknown,
+  isPending, isNotPending,
+  isUndecided, isNotUndecided,
+  isForbidden, isNotForbidden,
+  isVoid, isNotVoid,
+  isNil, isNotNil,
+  isKnown, isNotKnown,
+  isOperation, isNotOperation,
+
+  knowledgeIntegrate, knowledgeQuery, knowledgeUpdate,
+
+  baseDeltaMap, baseDeltaTherefore,
+
+  base, baseAt, baseDo, baseErrorHandler, baseIntegrate,
+  baseMember, baseQuery, baseUpdate,
+
+  record, recordAt, recordBinding, recordContent, recordDo, recordErrorHandler, recordField,
+  recordIntegrate, recordQuery, recordUpdate, reduceNotKnownNowTo,
+
+  remoteConfig,
+  remoteErrorConfig)
+
+  where
 
 {-| This module contains the "Knowledge Base" system, which is in essence a unique compromise between data binding
 and explicit fetching and writing.
@@ -39,8 +88,52 @@ that provides very concise reductions and conditionally executed contingencies f
 succinct mapping from fuzzy knowledge states on to concrete views.
 
 It is also possble to compose transformations and mapping
-on to pending query results, so that longer running asynchronous transformations (including fetching and manipulation)
-can be declared up front. The documentation is underway. -}
+on to pending remote operation results, so that longer running asynchronous transformations (including fetching and manipulation)
+can be composed as deeply as desired. The documentation is underway.
+
+# Definitions
+@docs Knowledge, KnowledgeBase, KnowledgeRecord, KnowledgeBaseDelta
+
+# Aliases for Knowledge of a KnowledgeBase or a KnowledgeRecord
+@docs BaseKnowledge, RecordKnowledge
+
+# Remote Synchronization
+@docs Remote, RemoteMap, RemoteConfig, RemoteMapConfig, QueryTask
+
+# Knowledge constructors
+@docs knowledgeOf, forbiddenKnowledge, pendingKnowledge, undecidedKnowledge, unknownKnowledge, voidKnowledge, knowledgeDo
+
+# Knowledge from Existing non-determinant Types
+@docs maybeOr, resultOr
+
+# Make Conditional Assumptions about Knowledge
+@docs assumeIf, assumeIfNot, assumeIfNow, assumeInCase, assumeInCaseNow, decideBy, doOperation, maybeKnownNow, otherwise
+
+# Transforming Knowledge
+@docs therefore, within
+
+# Conditionally Dispatch Operations on Knowledge
+@docs dispatchIf, dispatchIfNot, dispatchInCase
+
+# Basic Knowledge Predicates
+@docs isUnknown, isNotUnknown, isPending, isNotPending, isUndecided, isNotUndecided, isForbidden, isNotForbidden, isVoid, isNotVoid, isNil, isNotNil, isKnown, isNotKnown, isOperation, isNotOperation
+
+# Integrate Knowledge
+@docs knowledgeIntegrate, knowledgeQuery, knowledgeUpdate
+
+# Transforming Knowledge Base Deltas
+@docs baseDeltaMap, baseDeltaTherefore
+
+# Knowledge Base Operations
+@docs base, baseAt, baseDo, baseErrorHandler, baseIntegrate, baseMember, baseQuery, baseUpdate
+
+# Knowledge Record Operations
+@docs record, recordAt, recordBinding, recordContent, recordDo, recordErrorHandler, recordField, recordIntegrate, recordQuery, recordUpdate, reduceNotKnownNowTo
+
+# Configuration
+@docs remoteConfig, remoteErrorConfig
+
+-}
 
 import Gigan.Core exposing (..)
 import Gigan.Error
@@ -51,15 +144,19 @@ import Task exposing (Task, andThen, onError)
 import Dict exposing (Dict)
 
 
+{-| -}
 type alias Remote v = Task Gigan.Error.Error (Knowledge v)
 
+{-| -}
 type alias RemoteMap comparable v = Dict comparable (Remote v)
 
 type alias BaseImpl comparable v = Dict comparable (Knowledge v)
 type alias BaseDeltaImpl comparable v = (comparable, Knowledge v)
 
+{-| -}
 type alias QueryTask never = Task never ()
 
+{-| A knowledge atom. -}
 type Knowledge v =
   Unknown
   | Pending
@@ -74,7 +171,7 @@ type Knowledge v =
   -- enters in to this state, it's time to intervene, whether automatically or with the aid of user
   -- feedback of some kind.
   | Undecided Gigan.Error.Error
-  -- This is what is done if the result from the query for the data is an error explaining why
+  -- This is what is done if the result from the remote operation for the data is an error explaining why
   -- access to the data was denied.
   | Forbidden Gigan.Error.Error
   -- If a knowledge is an Operation, then any primitives not suffixed with Now
@@ -83,12 +180,15 @@ type Knowledge v =
   | Known v
 
 
+{-| Configures address to send remote results to, and an error handler for promoting Errors in to Knowledge. The default error handler simply promotes errors to Undecided. -}
 type alias RemoteConfig v =
   { address : Signal.Address (Knowledge v)
   , errorHandler : Gigan.Error.Error -> Knowledge v
   }
 
 
+{-| Configures an address per key to send remote results to, and an error handler per key for promoting Errors in to Knowledge. The default error handler simply promotes errors to Undecided.
+The default configuration proxies a single address which accepts a KnowledgeBaseDelta. -}
 type alias RemoteMapConfig comparable v =
   { addressOf : comparable -> Signal.Address (Knowledge v)
   , errorHandlerOf : comparable -> Gigan.Error.Error -> Knowledge v
@@ -96,10 +196,12 @@ type alias RemoteMapConfig comparable v =
 
 
 -- Use these for collections, encapsulates many implementation details.
+{-| -}
 type alias KnowledgeBaseDelta comparable v =
   BaseDeltaImpl comparable v
 
 
+{-| -}
 type alias KnowledgeBase comparable v =
   { base : BaseImpl comparable v
   , deltas : BaseImpl comparable v
@@ -108,6 +210,7 @@ type alias KnowledgeBase comparable v =
   }
 
 
+{-| -}
 type alias KnowledgeRecord userrecord comparable v =
   { kbase : KnowledgeBase comparable v
   , writes : Dict comparable (Knowledge v -> userrecord -> userrecord)
@@ -119,16 +222,18 @@ type alias KnowledgeRecord userrecord comparable v =
 -- Interpret KnowledgeBases and KnowledgeRecords as types of Knowledge. This enables Elm
 -- Architecture style nesting, but in the context of dynamic collections of Knowledge.
 
+{-| -}
 type alias BaseKnowledge comparable v =
   Knowledge (KnowledgeBase comparable v)
 
+{-| -}
 type alias RecordKnowledge userrecord comparable v =
   Knowledge (KnowledgeRecord userrecord comparable v)
 
 
 
--- Specifies an RemoteConfig with which to close off an inquiry by sending it's results or an
--- error describing it's failure to the given Signal.Address (Knowledge v).
+{-| Specifies an RemoteConfig with which to close off an remote operation by sending it's results or an
+error describing it's failure to the given Signal.Address (Knowledge v). -}
 remoteConfig : Signal.Address (Knowledge v) -> RemoteConfig v
 remoteConfig address =
   { address = address
@@ -136,10 +241,10 @@ remoteConfig address =
   }
 
 
--- Adds an optional special error handler for resolving totally unexpected errors. A "final" error
--- handler should be provided such that any errors not trapped by a decideBy application still
--- gracefully recover. By default, a valid knowledge is produced from any error by promoting that
--- Error to Undecided.
+{-| Adds an optional special error handler for resolving totally unexpected errors. A "final" error
+handler should be provided such that any errors not trapped by a decideBy application still
+gracefully recover. By default, a valid knowledge is produced from any error by promoting that
+Error to Undecided. -}
 remoteErrorConfig : (Gigan.Error.Error -> Knowledge v) -> RemoteConfig v -> RemoteConfig v
 remoteErrorConfig handler config =
   { config
@@ -147,7 +252,7 @@ remoteErrorConfig handler config =
   }
 
 
--- primitives for deducing your situation in order to avoid redundancy.
+{-| -}
 isUnknown : Knowledge v -> Bool
 isUnknown kb =
   case kb of
@@ -155,20 +260,24 @@ isUnknown kb =
     _ -> False
 
 
+{-| -}
 isNotUnknown : Knowledge v -> Bool
 isNotUnknown = isUnknown >> not
 
 
+{-| -}
 isPending : Knowledge v -> Bool
 isPending kb =
   case kb of
     Pending -> True
     _ -> False
 
+{-| -}
 isNotPending : Knowledge v -> Bool
 isNotPending = isPending >> not
 
 
+{-| -}
 isVoid : Knowledge v -> Bool
 isVoid kb =
   case kb of
@@ -176,10 +285,12 @@ isVoid kb =
     _ -> False
 
 
+{-| -}
 isNotVoid : Knowledge v -> Bool
 isNotVoid = isVoid >> not
 
 
+{-| -}
 isNil : Knowledge v -> Bool
 isNil kb =
   case kb of
@@ -188,10 +299,12 @@ isNil kb =
     _ -> False
 
 
+{-| -}
 isNotNil : Knowledge v -> Bool
 isNotNil = isNil >> not
 
 
+{-| -}
 isUndecided : Knowledge v -> Bool
 isUndecided kb =
   case kb of
@@ -199,10 +312,12 @@ isUndecided kb =
     _ -> False
 
 
+{-| -}
 isNotUndecided : Knowledge v -> Bool
 isNotUndecided = isUndecided >> not
 
 
+{-| -}
 isForbidden : Knowledge v -> Bool
 isForbidden kb =
   case kb of
@@ -210,10 +325,12 @@ isForbidden kb =
     _ -> False
 
 
+{-| -}
 isNotForbidden : Knowledge v -> Bool
 isNotForbidden = isForbidden >> not
 
 
+{-| -}
 isOperation : Knowledge v -> Bool
 isOperation kb =
   case kb of
@@ -221,10 +338,12 @@ isOperation kb =
     _ -> False
 
 
+{-| -}
 isNotOperation : Knowledge v -> Bool
 isNotOperation = isOperation >> not
 
 
+{-| -}
 isKnown : Knowledge v -> Bool
 isKnown kb =
   case kb of
@@ -232,6 +351,7 @@ isKnown kb =
     _ -> False
 
 
+{-| -}
 isNotKnown : Knowledge v -> Bool
 isNotKnown = isKnown >> not
 
@@ -246,12 +366,12 @@ catchError decider remote =
   remote `onError` (decider >> Task.succeed)
 
 
--- transform the value itself, if known, producing a knowledge of some new value type value'.
--- therefores are composed on to the results of inquiries if they represent known knowledge or
--- further remedies to attempt. This allows us to compose async processing stages before knowledge
--- is finally reduced to a displayed or usable result as deeply and interchangably as we want to,
--- provided that we always use "therefore" _first_ to lift the knowledge type out before listing
--- a sequence of simple or contingent reductions.
+{-| transform the value itself, if known, producing a knowledge of some new value type value'.
+therefores are composed on to the results of remote operations if they represent known knowledge or
+further operations to attempt. This allows us to compose async processing stages before knowledge
+is finally reduced to a displayed or usable result as deeply and interchangably as we want to,
+provided that we always use "therefore" _first_ to lift the knowledge type out before listing
+a sequence of simple or contingent reductions. -}
 therefore : (v -> v') -> Knowledge v -> Knowledge v'
 therefore xdcr kb =
   case kb of
@@ -266,7 +386,15 @@ therefore xdcr kb =
     Operation remote -> Operation (comprehend xdcr remote)
 
 
--- For nested knowledge base operations
+{-| This is for nesting operations on knowledge bases. For example:
+
+    -- this'll write something at the patch foo.bar if "bar" is void.
+    baseDo (within <| baseDo (inquireIf isVoid myBarWriter) "bar") "foo" myBase
+
+This code will work on a knowledge base of base knowledges, so that's a nested record. The active
+record pattern can be approximated like this, and I've found it extremely handy.
+
+-}
 within : (sub -> sub) -> Knowledge sub -> Knowledge sub
 within operation ksub =
   case ksub of
@@ -280,7 +408,7 @@ within operation ksub =
 -- following principal is obeyed: Any primitive which makes sense on an Undecided, Void, or Known
 -- Knowledge instance _also applies to future knowledge implied by the existence of an Operation,_
 -- such that Remotes can be very cleanly chained in causal order with repeated forward
--- applications of `inquireIf` and `inquireInCase`, and reduced with a declared plan just as cleanly
+-- applications of `dispatchIf` and `dispatchInCase`, and reduced with a declared plan just as cleanly
 -- at any future stage using `therefore`, `decideBy`, and `assumeIf`. One can freely alternate
 -- between Inquiries and causal reductions, whose most important primitives are given in respective
 -- lists above, and then pipe the future state of the knowledge back in to any part of the program
@@ -291,16 +419,15 @@ within operation ksub =
 -- specified is to promote the offending Error to an Undecided.
 
 
--- offer a decision on an error classified as 'Undecided'. Undecided errors are the result of some
--- problem which may or may not be in control of the client. The problem could have been network
--- partitioning related, or it could have been the result of some user input that was invalid.
--- The Knowledge state does not encode the manner in which the data was obtained, so that that
--- concern can be separated, since it would otherwise greatly complicate the knowledge primitive.
--- At this point, it should be apparent that Knowledge is the state in a state machine composed by
--- sequential transformations of a Knowledge by these pipeline functions. The goal of this is clean
--- implicit causality and control flow in complex declarations about how to handle non-determinant
--- state answered by a finnicky outside oracle that may or may not make sense or be prompt. We leave
--- this oracle a forwarding address below to reach our knowledge base with.
+{-| Offer a decision on an error classified as 'Undecided'. Undecided errors are the result of some
+problem which may or may not be in control of the client. The problem could have been network
+partitioning related, or it could have been the result of some user input that was invalid.
+The Knowledge state does not encode the manner in which the data was obtained, so that that
+concern can be separated, since it would otherwise greatly complicate the knowledge primitive.
+At this point, it should be apparent that Knowledge is the state in a state machine composed by
+sequential transformations of a Knowledge by these pipeline functions. The goal of this is clean
+implicit causality and control flow in complex declarations about how to handle non-determinant
+state answered by a finnicky outside oracle that may or may not make sense or be prompt. -}
 decideBy : (Gigan.Error.Error -> Knowledge v) -> Knowledge v -> Knowledge v
 decideBy decider kb =
   case kb of
@@ -310,8 +437,8 @@ decideBy decider kb =
     _ -> kb
 
 
--- If some predicate `satisfies` is satisfied by the knowledge `kb`, then we make the following
--- assumption. This also applies to future knowledge implied by the existence of an Operation.
+{-| If some predicate `satisfies` is satisfied by the knowledge `kb`, then we make the following
+assumption. This also applies to future knowledge implied by the existence of an Operation. -}
 assumeIf : (Knowledge v -> Bool) -> v -> Knowledge v -> Knowledge v
 assumeIf satisfies assume kb =
   case kb of
@@ -322,14 +449,15 @@ assumeIf satisfies assume kb =
       if satisfies kb then therefore (always assume) kb else kb
 
 
+{-| Negation of assumeIf -}
 assumeIfNot : (Knowledge v -> Bool) -> v -> Knowledge v -> Knowledge v
 assumeIfNot satisfies assume kb =
   assumeIf (satisfies >> not) assume kb
 
 
--- If `possibleAssumption` yields some value `value'` when a Knowledge is applied, then
--- that value is used to overwrite the knowledge with an assumption `Known value'`, otherwise the
--- Knowledge is unaffected.
+{-| If `possibleAssumption` yields some value `value'` when a Knowledge is applied, then
+that value is used to overwrite the knowledge with an assumption `Known value'`, otherwise the
+Knowledge is unaffected. -}
 assumeInCase : (Knowledge v -> Maybe v) -> Knowledge v -> Knowledge v
 assumeInCase possibleAssumption kb =
   case kb of
@@ -341,57 +469,63 @@ assumeInCase possibleAssumption kb =
       |> Maybe.withDefault kb
 
 
--- If some predicate `satisfies` is satisfied by the knowledge `kb`, then we make the following
--- inquiry.
-inquireIf : (Knowledge v -> Bool) -> Remote v -> Knowledge v -> Knowledge v
-inquireIf satisfies remote kb =
+{-| If some predicate `satisfies` is satisfied by the knowledge `kb`, then we make the following
+remote operation. -}
+dispatchIf : (Knowledge v -> Bool) -> Remote v -> Knowledge v -> Knowledge v
+dispatchIf satisfies remote kb =
   case kb of
     Operation remote ->
-      Operation (remote `andThen` (inquireIf satisfies remote >> Task.succeed))
+      Operation (remote `andThen` (dispatchIf satisfies remote >> Task.succeed))
 
     _ ->
-      inquireInCase (if satisfies kb then always (Just remote) else always Nothing) kb
+      dispatchInCase (if satisfies kb then always (Just remote) else always Nothing) kb
 
 
-inquireIfNot : (Knowledge v -> Bool) -> Remote v -> Knowledge v -> Knowledge v
-inquireIfNot satisfies remote kb =
-  inquireIf (satisfies >> not) remote kb
+{-| Negation of dispatchIf -}
+dispatchIfNot : (Knowledge v -> Bool) -> Remote v -> Knowledge v -> Knowledge v
+dispatchIfNot satisfies remote kb =
+  dispatchIf (satisfies >> not) remote kb
 
 
--- the root inquiry transformation which maybe produces an Remote. If it does, then that becomes
--- an Operation, otherwise the Knowledge is unaffected.
-inquireInCase : (Knowledge v -> Maybe (Remote v)) -> Knowledge v -> Knowledge v
-inquireInCase possibleOperation kb =
+{-| The root remote operation transformation which maybe produces a remote task. If it does, then that becomes
+an Operation, otherwise the Knowledge is unaffected. -}
+dispatchInCase : (Knowledge v -> Maybe (Remote v)) -> Knowledge v -> Knowledge v
+dispatchInCase possibleOperation kb =
   case kb of
     Operation remote ->
-      Operation (remote `andThen` (inquireInCase possibleOperation >> Task.succeed))
+      Operation (remote `andThen` (dispatchInCase possibleOperation >> Task.succeed))
 
     _ ->
       Maybe.map doOperation (possibleOperation kb)
       |> Maybe.withDefault kb
 
 
--- NOTE : These primitives force a reduction now even for an inquiry type
+-- NOTE : These primitives force a reduction now even for an remote operation type
 -- convenient conversion to a maybe after all mappings are given. This is intended for use when
 -- mapping the state of the content to an actual display.
+
+{-| If a knowledge is known, then give Just it's value, otherwise Nothing. -}
 maybeKnownNow : Knowledge v' -> Maybe v'
 maybeKnownNow kb' =
   case kb' of
     Known x' -> Just x'
     _ -> Nothing
 
+{-| If the predicate is satisfied, replace the knowledge with some known value. -}
 assumeIfNow : (Knowledge v' -> Bool) -> v' -> Knowledge v' -> Knowledge v'
 assumeIfNow satisfies assumption kb' =
   if satisfies kb' then Known assumption else kb'
 
 
-assumeInCaseNow : (Knowledge v' -> Bool) -> v' -> Knowledge v' -> Knowledge v'
-assumeInCaseNow satisfies assumption kb' =
-  if satisfies kb' then Known assumption else kb'
+{-| -}
+assumeInCaseNow : (Knowledge v' -> Maybe v') -> Knowledge v' -> Knowledge v'
+assumeInCaseNow possibleAssumption kb' =
+  Maybe.map Known (possibleAssumption kb')
+  |> Maybe.withDefault kb'
 
 
--- This is the special reduction we use to collapse away the Knowledge type, determining a
--- final value to work with.
+{-| This is the special reduction we use to collapse away the Knowledge type, determining a final
+value to work with. -}
 reduceNotKnownNowTo : v' -> Knowledge v' -> v'
 reduceNotKnownNowTo assumption kb' =
   case kb' of
@@ -399,36 +533,42 @@ reduceNotKnownNowTo assumption kb' =
     _ -> assumption
 
 
+{-| Preferred shorthand for reduceNotKnownNowTo -}
 otherwise : v' -> Knowledge v' -> v'
 otherwise = reduceNotKnownNowTo
 
 
--- Semantic knowledge declarations for when a Knowledge is required as a result. Use these to
--- be more pedantic in your code for better clarity. This way, the type is opaque and unimportant.
+{-| -}
 unknownKnowledge : Knowledge v
 unknownKnowledge = Unknown
 
 
+{-| -}
 pendingKnowledge : Knowledge v
 pendingKnowledge = Pending
 
 
+{-| -}
 voidKnowledge : Knowledge v
 voidKnowledge = Void
 
 
+{-| -}
 undecidedKnowledge : Gigan.Error.Error -> Knowledge v
 undecidedKnowledge = Undecided
 
 
+{-| -}
 forbiddenKnowledge : Gigan.Error.Error -> Knowledge v
 forbiddenKnowledge = Forbidden
 
 
+{-| -}
 knowledgeOf : v -> Knowledge v
 knowledgeOf = Known
 
 
+{-| -}
 resultOr : (Gigan.Error.Error -> Knowledge v) -> Result Gigan.Error.Error v -> Knowledge v
 resultOr errorKnowledge result =
   case result of
@@ -436,30 +576,36 @@ resultOr errorKnowledge result =
     Result.Err err' -> errorKnowledge err'
 
 
+{-| -}
 maybeOr : Knowledge v -> Maybe v -> Knowledge v
 maybeOr nothingKnowledge maybeValue =
   Maybe.map Known maybeValue
   |> Maybe.withDefault nothingKnowledge
 
 
+{-| -}
 doOperation : Remote v -> Knowledge v
 doOperation = Operation
 
 
+{-| -}
 knowledgeDo : (Knowledge v -> Knowledge v) -> comparable -> Knowledge v -> Knowledge v
 knowledgeDo transform _ kb =
   transform kb
 
 
+{-| -}
 knowledgeUpdate : KnowledgeBaseDelta comparable v -> Knowledge v -> Knowledge v
 knowledgeUpdate (_, kb') kb = kb'
 
 
+{-| -}
 knowledgeQuery : RemoteConfig v -> Knowledge v -> Maybe (QueryTask never)
 knowledgeQuery config kb =
   Maybe.map (declareRemoteResultDispatch_ config) (maybeRemoteTask_ kb)
 
 
+{-| -}
 knowledgeIntegrate : RemoteConfig v -> Knowledge v -> Knowledge v
 knowledgeIntegrate config kb =
   if isOperation kb then Pending else kb
@@ -470,10 +616,11 @@ knowledgeIntegrate config kb =
 -- Knowledge base is configured with an address to send deltas to.
 -- When one requires contacting the outside information source, an Operation,
 -- one possibly gets a task for each recompute of the program where that task dispatches the
--- fetch or compute operations given as inquiries. Any Operation Knowledge items produce their
+-- fetch or compute operations given as remote operations. Any Operation Knowledge items produce their
 -- respective tasks, which send their results to the KnowledgeBase's address. These tasks are
 -- always dispatched in parallel by folding the task list by spawn ... andThen.
 
+{-| -}
 base : Signal.Address (KnowledgeBaseDelta comparable v) -> KnowledgeBase comparable v
 base address =
   { base = Dict.empty
@@ -483,6 +630,7 @@ base address =
   }
 
 
+{-| -}
 baseErrorHandler : (Gigan.Error.Error -> Knowledge v) -> KnowledgeBase comparable v -> KnowledgeBase comparable v
 baseErrorHandler errorHandler kbase =
   { kbase
@@ -490,6 +638,7 @@ baseErrorHandler errorHandler kbase =
   }
 
 
+{-| -}
 baseAt : comparable -> KnowledgeBase comparable v -> Knowledge v
 baseAt key kbase =
   if baseMember_ key kbase.deltas then
@@ -498,10 +647,12 @@ baseAt key kbase =
     baseAt_ key kbase.base
 
 
+{-| -}
 baseMember : comparable -> KnowledgeBase comparable v -> Bool
 baseMember key = baseAt key >> (/=) Unknown
 
 
+{-| -}
 baseDo : (Knowledge v -> Knowledge v) -> comparable -> KnowledgeBase comparable v -> KnowledgeBase comparable v
 baseDo transform key kbase =
   let
@@ -516,16 +667,19 @@ baseDo transform key kbase =
     }
 
 
+{-| -}
 baseDeltaTherefore : (v -> v') -> KnowledgeBaseDelta comparable v -> KnowledgeBaseDelta comparable v'
 baseDeltaTherefore xdcr (key, kb') =
   (key, therefore xdcr kb')
 
 
+{-| -}
 baseDeltaMap : (Knowledge v -> Knowledge v) -> KnowledgeBaseDelta comparable v -> KnowledgeBaseDelta comparable v
 baseDeltaMap transform (key, kb') =
   (key, transform kb')
 
 
+{-| -}
 baseUpdate : KnowledgeBaseDelta comparable v -> KnowledgeBase comparable v -> KnowledgeBase comparable v
 baseUpdate (key, kb') kbase =
   { kbase
@@ -533,11 +687,13 @@ baseUpdate (key, kb') kbase =
   }
 
 
+{-| -}
 baseQuery : KnowledgeBase comparable v -> Maybe (QueryTask never)
 baseQuery kbase =
   baseDeltaDictQuery_ kbase.config kbase.deltas
 
 
+{-| -}
 baseIntegrate : KnowledgeBase comparable v -> KnowledgeBase comparable v
 baseIntegrate kbase =
   { kbase
@@ -549,16 +705,7 @@ baseIntegrate kbase =
 {-- KNOWLEDGE RECORD --}
 
 
-{--
-type alias KnowledgeRecord userrecord comparable v =
-  { kbase : KnowledgeBase comparable v
-  , writes : Dict comparable (Knowledge v -> userrecord -> userrecord)
-  , reads : Dict comparable (userrecord -> Knowledge v)
-  , record : userrecord
-  }
---}
-
-
+{-| -}
 record : Signal.Address (KnowledgeBaseDelta comparable v) -> userrecord -> KnowledgeRecord userrecord comparable v
 record address rec =
   { kbase = base address
@@ -568,6 +715,7 @@ record address rec =
   }
 
 
+{-| -}
 recordField : (Knowledge v -> userrecord -> userrecord) -> (userrecord -> Knowledge v) -> comparable -> KnowledgeRecord userrecord comparable v -> KnowledgeRecord userrecord comparable v
 recordField write' read' key krecord =
   { krecord
@@ -576,6 +724,7 @@ recordField write' read' key krecord =
   }
 
 
+{-| -}
 recordErrorHandler : (Gigan.Error.Error -> Knowledge v) -> KnowledgeRecord userrecord comparable v -> KnowledgeRecord userrecord comparable v
 recordErrorHandler errorHandler krecord =
   { krecord
@@ -583,23 +732,28 @@ recordErrorHandler errorHandler krecord =
   }
 
 
+{-| -}
 recordContent : KnowledgeRecord userrecord comparable v -> userrecord
 recordContent = .record
 
 
+{-| -}
 recordBinding : KnowledgeRecord userrecord comparable v -> KnowledgeBase comparable v
 recordBinding = .kbase
 
 
+{-| -}
 recordAt : (userrecord -> Knowledge v) -> KnowledgeRecord userrecord comparable v -> Knowledge v
 recordAt getter = .record >> getter
 
 
+{-| -}
 recordUpdate : KnowledgeBaseDelta comparable v -> KnowledgeRecord userrecord comparable v -> KnowledgeRecord userrecord comparable v
 recordUpdate kbdelta krecord =
   recordWrite_ kbdelta krecord
 
 
+{-| -}
 recordDo : (Knowledge v -> Knowledge v) -> comparable -> KnowledgeRecord userrecord comparable v -> KnowledgeRecord userrecord comparable v
 recordDo transform key krecord =
   -- easy as pie! :`-D
@@ -608,11 +762,13 @@ recordDo transform key krecord =
   |> \kb' -> recordWrite_ (key, kb') krecord
 
 
+{-| -}
 recordQuery : KnowledgeRecord userrecord comparable v -> Maybe (QueryTask never)
 recordQuery =
   .kbase >> baseQuery
 
 
+{-| -}
 recordIntegrate : KnowledgeRecord userrecord comparable v -> KnowledgeRecord userrecord comparable v
 recordIntegrate krecord =
   { krecord | kbase = baseIntegrate krecord.kbase }
