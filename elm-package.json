@@ -1,0 +1,36 @@
+{
+    "version": "1.0.0",
+    "summary": "Gigan - Elm Application Framework",
+    "repository": "https://github.com/user/project.git",
+    "license": "",
+    "source-directories": [
+        "./src"
+    ],
+    "exposed-modules": [
+        "Gigan.Core",
+        "Gigan.Error",
+        "Gigan.Layout",
+        "Gigan.Stem"
+    ],
+    "dependencies": {
+        "Apanatshka/elm-signal-extra": "5.7.0 <= v < 6.0.0",
+        "NoRedInk/elm-lazy-list": "2.0.0 <= v < 3.0.0",
+        "NoRedInk/elm-task-extra": "1.0.1 <= v < 2.0.0",
+        "ThomasWeiser/elmfire": "1.0.4 <= v < 2.0.0",
+        "ThomasWeiser/elmfire-extra": "1.0.3 <= v < 2.0.0",
+        "avh4-experimental/elm-layout": "1.1.1 <= v < 2.0.0",
+        "circuithub/elm-html-extra": "1.5.2 <= v < 2.0.0",
+        "elm-community/elm-history": "1.0.1 <= v < 2.0.0",
+        "elm-community/elm-material-icons": "1.0.0 <= v < 2.0.0",
+        "elm-lang/core": "3.0.0 <= v < 4.0.0",
+        "evancz/elm-html": "4.0.2 <= v < 5.0.0",
+        "evancz/elm-http": "3.0.0 <= v < 4.0.0",
+        "evancz/elm-svg": "2.0.1 <= v < 3.0.0",
+        "evancz/focus": "2.0.0 <= v < 3.0.0",
+        "evancz/virtual-dom": "2.1.0 <= v < 3.0.0",
+        "lukewestby/elm-http-extra": "1.2.2 <= v < 2.0.0",
+        "mgold/elm-date-format": "1.1.2 <= v < 2.0.0",
+        "rtfeldman/elm-validate": "1.1.1 <= v < 2.0.0"
+    },
+    "elm-version": "0.16.0 <= v < 0.17.0"
+}
