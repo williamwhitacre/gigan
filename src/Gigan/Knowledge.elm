@@ -107,7 +107,7 @@ can be composed as deeply as desired. The documentation is underway.
 @docs maybeOr, resultOr
 
 # Make Conditional Assumptions about Knowledge
-@docs assumeIf, assumeIfNot, assumeIfNow, assumeInCase, assumeInCaseNow, decideBy, doOperation, maybeKnownNow, otherwise
+@docs assumeIf, assumeIfNot, assumeIfNow, assumeInCase, assumeInCaseNow, decideBy, doOperation, maybeKnownNow, reduceNotKnownNowTo, otherwise
 
 # Transforming Knowledge
 @docs therefore, within
@@ -128,7 +128,7 @@ can be composed as deeply as desired. The documentation is underway.
 @docs base, baseAt, baseDo, baseErrorHandler, baseIntegrate, baseMember, baseQuery, baseUpdate
 
 # Knowledge Record Operations
-@docs record, recordAt, recordBinding, recordContent, recordDo, recordErrorHandler, recordField, recordIntegrate, recordQuery, recordUpdate, reduceNotKnownNowTo
+@docs record, recordAt, recordBinding, recordContent, recordDo, recordErrorHandler, recordField, recordIntegrate, recordQuery, recordUpdate
 
 # Configuration
 @docs remoteConfig, remoteErrorConfig
