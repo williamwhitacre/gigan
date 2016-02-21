@@ -28,15 +28,27 @@ THE USE OF THIS SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
 --}
 
 
-module Gigan.Error where
+module Gigan.Error
 
-{-| This module has is the internal error type for Gigan.
+  (DecodingFailure, ErrorType (UnknownError, DecoderError, UserError), Error,
+
+  decodingFailure,
+
+  reportError,     reportErrorAndLog,
+  unknownError,    unknownErrorAndLog,
+  decoderError,    decoderErrorAndLog,
+  userError,       userErrorAndLog)
+
+  where
+
+{-| This module contains the internal error type for Gigan and some helper functions for
+constructing errors.
 
 # Definitions
-@docs Error, ErrorType(OtherError, DecoderError, RemoteError, UserError)
+@docs DecodingFailure, Error, ErrorType
 
-# Constructor
-@docs reportError
+# Constructors
+@docs reportError, reportErrorAndLog, unknownError, unknownErrorAndLog, decoderError, decoderErrorAndLog, userError, userErrorAndLog, decodingFailure
 
 -}
 
@@ -44,28 +56,75 @@ module Gigan.Error where
 import Gigan.Core exposing (..)
 
 
-import Json.Encode
+{-| Represents a decoding task which failed. -}
+type alias DecodingFailure =
+  { source : String
+  , reason : String
+  }
 
 
 {-| Type of error that occurred in Gigan. -}
-type ErrorType =
-  OtherError
-  | DecoderError
-  | RemoteError Json.Encode.Value
-  | UserError Json.Encode.Value
+type ErrorType euser =
+  UnknownError
+  | DecoderError DecodingFailure
+  | UserError euser
 
 
 {-| Error record. -}
-type alias Error =
-  { error : ErrorType
+type alias Error euser =
+  { error : ErrorType euser
   , desc : String
   }
 
 
+{-| Given the source string on which decoding was attempted and the reason for the failure,
+give a DecodingFailure -}
+decodingFailure : String -> String -> DecodingFailure
+decodingFailure source reason =
+  { source = source, reason = reason }
+
+
 {-| Report an error. Given an ErrorType and a String describing what went wrong humanly, create
 an error record.  -}
-reportError : ErrorType -> String -> Error
-reportError error desc =
-  { error = error
-  , desc = desc
+reportError : String -> ErrorType euser -> Error euser
+reportError desc error =
+  { desc = desc
+  , error = error
   }
+
+
+{-| reportError and log to console.  -}
+reportErrorAndLog : String -> ErrorType euser -> Error euser
+reportErrorAndLog desc error =
+  Debug.log "Gigan report Error: " ("\"" ++ desc ++ "\"")
+  |> \_ -> reportError desc error
+
+
+{-| Report an error, the nature of which is not known. -}
+unknownError : String -> Error euser
+unknownError desc = reportError desc UnknownError
+
+
+{-| unknownError and log to console. -}
+unknownErrorAndLog : String -> Error euser
+unknownErrorAndLog desc = reportErrorAndLog desc UnknownError
+
+
+{-| Report a problem decoding something. -}
+decoderError : String -> DecodingFailure -> Error euser
+decoderError desc = DecoderError >> reportError desc
+
+
+{-| decoderError and log to console. -}
+decoderErrorAndLog : String -> DecodingFailure -> Error euser
+decoderErrorAndLog desc = DecoderError >> reportErrorAndLog desc
+
+
+{-| Report a user defined error. -}
+userError : String -> euser -> Error euser
+userError desc = UserError >> reportError desc
+
+
+{-| userError and log to console. -}
+userErrorAndLog : String -> euser -> Error euser
+userErrorAndLog desc = UserError >> reportErrorAndLog desc
