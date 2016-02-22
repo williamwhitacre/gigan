@@ -1,7 +1,7 @@
 # Gigan
 
 
-### What is this?
+## What is this?
 
 Gigan is an application programming framework for Elm. It's goals are as follows:
 
@@ -10,7 +10,7 @@ Gigan is an application programming framework for Elm. It's goals are as follows
 3. Supply a system with a rich and comprehensive DSL that models and maps data or components in a succinct and powerful nestable way. Ultimately, the intent is to, at worst, at least have the _ease of use of_ the active record pattern.
 
 
-### How do I use it?
+## How do I use it?
 
 A comprehensive set of runnable examples is underway. Right now, the only working example is a full
 production application that will be released before the end of April, 2016. Time should allow me to
@@ -22,7 +22,7 @@ uninitiated. The examples are obviously intended to cure this and lend these mod
 credibility.
 
 
-### Is it done?
+## Is it done?
 
 Never. Basically. Sort of. Everything contained herein works. That, however, does not have any
 bearing on whether or not it is done. There are further development plans beyond the examples for
@@ -32,6 +32,19 @@ this first usable edition. These include:
 2. Build a set of database back-end adapters for the Knowledge system for general use. Currently, we have one for internal use that I do not believe is clean enough to give out as-is. For this reason, Gigan's provided back-end and localstorage adapters for knowledge base will be released only when deemed fit to share. This is also likely to happen soon, within two months.
 
 
-### Getting Started
+## Getting Started
 
-    todo
+The following is the list of currently planned examples in the short term. The first of these is
+written, the others will follow very soon.
+
+1. `HelloGigan_ex0.elm`     -- The obligatory hello example, which demonstrates how to set up your first orbiter.
+2. `UsingStems_ex1.elm`     -- Showing how to use the Stem module to build components.
+3. `UsingKnowledge_ex2.elm` -- Build on the Stem example by using KnowledgeBase for collections within components.
+4. `StemKnowledge_ex3.elm`  -- An example of how to build a dynamic collection of like components using Stem and KnowledgeBase in conjunction.
+
+
+## Software License
+
+Gigan is released under the BSD3 license. The full text of this license is available in the `LICENSE`
+file in the source repository, and it is also available from
+[here](https://opensource.org/licenses/BSD-3-Clause).
