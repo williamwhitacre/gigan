@@ -9,10 +9,13 @@ excercised.
 -}
 
 import Gigan.Core exposing (..)
+
+-- We are using HTML here to avoid introducing too many unfamiliar things at once.
 import Html exposing (Html, div, span, button, text)
 import Html.Events exposing (onClick)
 import Html.Attributes exposing (style)
 
+-- We'll keep track of changes in the Window size.
 import Window
 
 import Signal
