@@ -1,5 +1,16 @@
 # Gigan
 
+### NOTE:
+
+This package has been renamed to williamwhitacre/scaffold for the sake of explicit naming policy.
+Core has been renamed to App, since it represents the means by which one sets up the root of an
+application, Stem has been renamed to Machine because of it's role in representing and manipulating
+instantaneous descriptions of state, Knowledge has been renamed to Resource to explicate it's role
+in managing (possibly) remote resources, and the Orbiter concept has been renamed to Program to
+explicate it's role in defining per-component programs. Please inquire
+[here](http://package.elm-lang.org/packages/williamwhitacre/scaffold/) for the latest work on this
+package.
+
 
 ## What is this?
 
